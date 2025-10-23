@@ -224,21 +224,69 @@ db.reviews.countDocuments();
 
 /********************************************************************************
  D) ÍNDICES (inclui 2dsphere)
- - Índice composto category_id+price (catálogo).
- - Texto em name/description (busca).
- - Índices de referência + relatórios por status/data.
- - Geoespacial 2dsphere (users e products).
+ Justificativas-padrão usadas:
+ - Frequência: quão comum é o padrão na aplicação (telas/relatórios).
+ - Cardinalidade: quantidade de valores distintos no(s) campo(s) (baixa/média/alta).
+ - Seletividade: o quanto o filtro reduz o conjunto (quanto menor o % retornado, melhor).
+
+ Objetivo geral:
+ - Catálogo rápido por categoria com ordenação por preço.
+ - Busca textual sem varrer coleção inteira.
+ - Joins frequentes e relatórios com bom custo.
+ - Geo com proximidade e filtro por área (2dsphere obrigatório).
 ********************************************************************************/
 use('marketplace_db');
 
-db.products.createIndex({ category_id:1, price:1 });
-db.products.createIndex({ name:"text", description:"text" });
-db.products.createIndex({ seller_id:1 });
-db.reviews.createIndex({ product_id:1 });
-db.reviews.createIndex({ user_id:1 });
-db.orders.createIndex({ buyer_id:1, created_at:-1 });
-db.orders.createIndex({ status:1, created_at:-1 });
+/* Catálogo por categoria + ordenação por preço
+   - Frequência: muito alta (listagem principal por categoria).
+   - Cardinalidade: category_id média/alta; price contínuo.
+   - Seletividade: boa ao filtrar por category_id; o sort por price é atendido no índice (evita SORT em memória). */
+db.products.createIndex({ category_id: 1, price: 1 });
+
+/* Busca textual por nome/descrição
+   - Frequência: alta (busca por palavra-chave).
+   - Cardinalidade: alta (muitos termos e combinações).
+   - Seletividade: boa para termos específicos; evita COLLSCAN em $text. */
+db.products.createIndex({ name: "text", description: "text" });
+
+/* Navegação por vendedor (meus produtos / vitrine do vendedor)
+   - Frequência: média/alta (páginas do vendedor e relatórios).
+   - Cardinalidade: alta (muitos vendedores).
+   - Seletividade: boa (filtro exato por seller_id). */
+db.products.createIndex({ seller_id: 1 });
+
+/* Detalhe do produto → reviews do produto
+   - Frequência: alta (toda página de produto).
+   - Cardinalidade: alta (muitos produtos).
+   - Seletividade: ótima (product_id exato). */
+db.reviews.createIndex({ product_id: 1 });
+
+/* Histórico de avaliações por usuário (perfil/auditoria)
+   - Frequência: média.
+   - Cardinalidade: alta (muitos usuários).
+   - Seletividade: ótima (user_id exato). */
+db.reviews.createIndex({ user_id: 1 });
+
+/* Timeline de pedidos por comprador
+   - Frequência: média (meus pedidos).
+   - Cardinalidade: alta (muitos compradores).
+   - Seletividade: boa (buyer_id); ordenação por created_at DESC coberta no índice. */
+db.orders.createIndex({ buyer_id: 1, created_at: -1 });
+
+/* Painéis/monitoramento por status ao longo do tempo
+   - Frequência: média/alta (backoffice).
+   - Cardinalidade: status baixa (poucos valores); combinado com data fica seletivo.
+   - Seletividade: boa com filtro status + intervalo de datas; sort por data coberto. */
+db.orders.createIndex({ status: 1, created_at: -1 });
+
+/* Geolocalização de usuários (necessário para $near/$geoWithin)
+   - Frequência: média (casos de proximidade de usuários).
+   - Observação: 2dsphere é obrigatório para consultas geoespaciais. */
 db.users.createIndex({ location: "2dsphere" });
+
+/* Geolocalização de produtos (proximidade e relatórios por área)
+   - Frequência: alta (buscar produtos próximos; H1/H3).
+   - Observação: 2dsphere é obrigatório para $near e $geoWithin. */
 db.products.createIndex({ location: "2dsphere" });
 
 /********************************************************************************
