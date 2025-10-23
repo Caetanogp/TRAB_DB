@@ -390,6 +390,63 @@ if (r) {
 }
 
 /********************************************************************************
+ G4) Compra com resgate de pontos de fidelidade
+ - Usa até 20% do total em pontos (1 ponto = R$1 de desconto, ajuste se quiser).
+ - Debita do saldo do usuário e registra o desconto aplicado no pedido.
+********************************************************************************/
+use('marketplace_db');
+
+const buyerRedeem = db.users.findOne({ email: "bruno@ex.com" });
+const prodRedeem  = db.products.findOne({ name: "Smartphone X" });
+const qtyRedeem   = 1;
+
+if (!prodRedeem || prodRedeem.qty < qtyRedeem) {
+  throw new Error("Estoque insuficiente ou produto não encontrado para resgate.");
+}
+
+const totalBruto   = prodRedeem.price * qtyRedeem;
+const limitePerc   = 0.20;                    // cap de 20% do valor
+const limiteValor  = Math.floor(totalBruto * limitePerc);
+const podeUsar     = Math.min(buyerRedeem.points_balance, limiteValor);
+const descontoUsado= podeUsar;                // 1 ponto = R$1
+const totalLiquido = totalBruto - descontoUsado;
+
+// cria a ordem com campo "discount_points_used"
+const insRedeem = db.orders.insertOne({
+  buyer_id: buyerRedeem._id,
+  status: "PAID",
+  created_at: new Date(),
+  paid_at: new Date(),
+  items: [{ product_id: prodRedeem._id, seller_id: prodRedeem.seller_id, qty: qtyRedeem, unit_price: prodRedeem.price }],
+  total_amount: totalLiquido,
+  loyalty_points_awarded: Math.floor(totalLiquido * 0.10), // pontos sobre o líquido (política)
+  buyer_location: buyerRedeem.location,
+  discount_points_used: descontoUsado
+});
+
+// estoque e pontos: debita usados e credita pelos pontos da compra líquida
+db.products.updateOne({ _id: prodRedeem._id }, { $inc: { qty: -qtyRedeem } });
+db.users.updateOne(
+  { _id: buyerRedeem._id },
+  {
+    $inc: {
+      points_balance: Math.floor(totalLiquido * 0.10) - descontoUsado
+    }
+  }
+);
+
+// conferência do resgate
+({
+  orderId: insRedeem.insertedId,
+  totalBruto,
+  descontoUsado,
+  totalLiquido,
+  novoEstoque: db.products.findOne({ _id: prodRedeem._id }, { qty: 1 }).qty,
+  pontosComprador: db.users.findOne({ _id: buyerRedeem._id }, { points_balance: 1 }).points_balance
+});
+
+
+/********************************************************************************
  H) CONSULTAS AVANÇADAS (GEOSPATIAL)
  H1: produtos próximos ao usuário (find + $near).
  H2: média de distância comprador↔vendedor (Haversine via $function).
