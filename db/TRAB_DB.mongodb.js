@@ -1,4 +1,11 @@
 /*******************************************************************************
+ 
+ Integrantes: Caetano Padoin, Caio Lamoglia e Gastão Borges
+ Instituição: Pontifícia Universidade Católica do Paraná
+ Período: Quarto A
+ Data: 25/10/2025
+ Disciplina: Database Performance Tunning
+
  Rodar blocos inteiros e em ordem A→H
 
  A) SETUP & LIMPEZA
