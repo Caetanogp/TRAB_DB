@@ -1,8 +1,9 @@
 /*******************************************************************************
  Rodar blocos inteiros e em ordem A→H
- 
+
  A) SETUP & LIMPEZA
  Ideia: escolher o DB, derrubar coleções antigas (idempotente) e ver se o ping está ok.
+ Retorna: { ok: 1 } do ping se houver conexão com o servidor.
 *******************************************************************************/
 use('marketplace_db');
 
@@ -20,7 +21,8 @@ db.runCommand({ ping: 1 });
 /******************************************************************************* 
  B) VALIDAÇÃO (JSON SCHEMA) + CRIAÇÃO DAS COLLECTIONS
  Nota: usamos JSON Schema pra segurar estrutura e tipos. GeoJSON Point nos lugares
- que precisam de latitude/longitude. Se tudo der certo, o Playground mostra { ok: 1 }.
+ que precisam de latitude/longitude. 
+ Retorna: { ok: 1 } se a criação/validação ocorreu sem erros (exibido pelo Playground).
 *******************************************************************************/
 
 // helper de GeoJSON Point (simples e direto)
@@ -150,6 +152,7 @@ db.createCollection('reviews', {
  C) INSERTS (com contagens no final)
  Obs: mínimo 5 de cada, conforme enunciado. O retorno já vem com as contagens
  pra facilitar a conferência durante a apresentação.
+ Retorna: objeto com { users, categories, products, orders, reviews } contendo as contagens.
 *******************************************************************************/
 use('marketplace_db'); // repetimos alguns use() por garantia no Playground
 
@@ -234,6 +237,7 @@ db.reviews.insertMany(reviews);
  D) ÍNDICES (inclui 2dsphere)
  Ideia: acelerar o que a gente realmente usa. 
  Obs: justificativas curtas no próprio comentário do índice.
+ Retorna: objeto-resumo com arrays de nomes de índices por coleção.
 *******************************************************************************/
 use('marketplace_db');
 
@@ -282,12 +286,15 @@ db.products.createIndex({ location: "2dsphere" });
 *******************************************************************************/
 
 // E1 — Áudio ordenado por preço (índice deve cobrir o sort)
+// Retorna: (1) lista de produtos {name, price, qty, seller_id} ordenados por price ASC;
+//          (2) explain() com IXSCAN no índice {category_id:1, price:1}.
 use('marketplace_db');
 const cat = db.categories.findOne({ name: "Áudio" });
 db.products.find({ category_id: cat._id }, { name:1, price:1, qty:1, seller_id:1 }).sort({ price: 1 });
 db.products.find({ category_id: cat._id }).sort({ price: 1 }).explain("executionStats"); // olharmos por IXSCAN no composto
 
 // E2 — reviews do Headset Pro + nome do usuário (lookup)
+// Retorna: array de reviews { rating, comment, created_at, reviewer } ordenado por data desc.
 use('marketplace_db');
 const p = db.products.findOne({ name: "Headset Pro" });
 db.reviews.find({ product_id: p._id }); // simples
@@ -300,6 +307,7 @@ db.reviews.aggregate([ // com nome do reviewer
 ]);
 
 // E3 — compra de 1x Fone Bluetooth (estoque-- e pontos++)
+// Retorna: objeto { orderId, novoEstoque, pontosComprador } confirmando cada passo.
 use('marketplace_db');
 const buyer = db.users.findOne({ email: "bruno@ex.com" });
 const prodForOrder  = db.products.findOne({ name: "Fone Bluetooth" });
@@ -325,6 +333,7 @@ db.users.updateOne({ _id: buyer._id }, { $inc: { points_balance: points } });
    pontosComprador: db.users.findOne({ _id: buyer._id }, { points_balance:1 }).points_balance });
 
 // E4 — debitar estoque do “Smartphone X” (variação isolada)
+// Retorna: documento do produto com { name, qty } atualizado.
 use('marketplace_db');
 const prodStock = db.products.findOne({ name: "Smartphone X" });
 const saida = 2;
@@ -341,6 +350,7 @@ db.products.findOne({ _id: prodStock._id }, { name:1, qty:1 });
 *******************************************************************************/
 
 // F1 — média de avaliação por produto (simples e efetivo)
+// Retorna: array de { product, avgRating, count } ordenado por avgRating desc e count desc.
 use('marketplace_db');
 db.reviews.aggregate([
   { $group: { _id: "$product_id", avgRating: { $avg: "$rating" }, count: { $sum: 1 } } },
@@ -351,6 +361,7 @@ db.reviews.aggregate([
 ]);
 
 // F2 — total de vendas por categoria
+// Retorna: array de { categoria, receita, quantidade } ordenado por receita desc.
 use('marketplace_db');
 db.orders.aggregate([
   { $unwind: "$items" },
@@ -368,6 +379,7 @@ db.orders.aggregate([
 ]);
 
 // F3 — vendas por vendedor
+// Retorna: array de { vendedor, receita, quantidade } ordenado por receita desc.
 use('marketplace_db');
 db.orders.aggregate([
   { $unwind: "$items" },
@@ -389,6 +401,7 @@ db.orders.aggregate([
 *******************************************************************************/
 
 // G1 — promo de 15% no Headset Pro (período fechado)
+// Retorna: write result com { acknowledged, matchedCount, modifiedCount } (esperado modifiedCount = 1).
 use('marketplace_db');
 const head = db.products.findOne({ name: "Headset Pro" });
 if (head) {
@@ -406,6 +419,7 @@ if (head) {
 }
 
 // G2 — garantimos points_balance em todos (no nosso dataset já tem, então deve voltar 0/0)
+// Retorna: write result; neste dataset deve vir matchedCount/modifiedCount = 0 (já existia).
 use('marketplace_db');
 db.users.updateMany(
   { points_balance: { $exists: false } },
@@ -413,6 +427,7 @@ db.users.updateMany(
 );
 
 // G3 — responder uma avaliação ainda sem resposta
+// Retorna: documento da review já com seller_reply { replied_at, message }.
 use('marketplace_db');
 const r = db.reviews.findOne({ seller_reply: null });
 if (r) {
@@ -428,6 +443,10 @@ if (r) {
  G4) Compra com resgate de pontos
  Regra: usamos até 20% do valor em pontos (1 ponto ~ R$1). 
  Debita pontos usados e dá pontos sobre o valor líquido.
+ Retorna: objeto consolidado com:
+   - pedidoComDesconto: [{ total_amount, discount_points_used, loyalty_points_awarded }]
+   - estoqueSmartphoneX: { name, qty }
+   - pontosBruno: { name, points_balance }
 *******************************************************************************/
 use('marketplace_db');
 
@@ -495,6 +514,7 @@ db.users.updateOne(
 *******************************************************************************/
 
 // H1 — produtos perto do Bruno (20 km)
+// Retorna: lista de produtos mais próximos (ordenados por distância) com { name, price, location }.
 use('marketplace_db');
 const bruno = db.users.findOne({ email: "bruno@ex.com" });
 db.products.find({
@@ -507,6 +527,7 @@ db.products.find({
 }, { name: 1, price: 1, location: 1 }).limit(10);
 
 // H2 — média de distância nas ordens entregues
+// Retorna: array com único doc { avgDistanceKm, amostras }.
 use('marketplace_db');
 db.orders.aggregate([
   { $match: { status: "DELIVERED" } },
@@ -537,6 +558,7 @@ db.orders.aggregate([
 ]);
 
 // H3 — categoria mais vendida num raio de 30 km do Rio (geoWithin)
+// Retorna: array com único doc { categoria, qtd, receita } da campeã.
 use('marketplace_db');
 const center = { type: "Point", coordinates: [-43.2096, -22.9035] };
 const radiusKm = 30;
