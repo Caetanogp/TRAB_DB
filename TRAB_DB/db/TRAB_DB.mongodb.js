@@ -9,7 +9,7 @@
  Rodar blocos inteiros e em ordem A→H
 
  A) SETUP & LIMPEZA
- Ideia: escolher o DB, derrubar coleções antigas (idempotente) e ver se o ping está ok.
+ Ideia: escolher o DB, derrubar coleções antigas  e ver se o ping está ok.
  Retorna: { ok: 1 } do ping se houver conexão com o servidor.
 *******************************************************************************/
 use('marketplace_db');
@@ -32,7 +32,7 @@ db.runCommand({ ping: 1 });
  Retorna: { ok: 1 } se a criação/validação ocorreu sem erros (exibido pelo Playground).
 *******************************************************************************/
 
-// helper de GeoJSON Point (simples e direto)
+// helper de GeoJSON Point 
 const geoPointSchema = {
   bsonType: "object",
   required: ["type", "coordinates"],
@@ -157,8 +157,6 @@ db.createCollection('reviews', {
 
 /******************************************************************************* 
  C) INSERTS (com contagens no final)
- Obs: mínimo 5 de cada, conforme enunciado. O retorno já vem com as contagens
- pra facilitar a conferência durante a apresentação.
  Retorna: objeto com { users, categories, products, orders, reviews } contendo as contagens.
 *******************************************************************************/
 use('marketplace_db'); // repetimos alguns use() por garantia no Playground
@@ -275,7 +273,7 @@ db.users.createIndex({ location: "2dsphere" });
 // geolocalização (products) — vai ser usada no H1/H3
 db.products.createIndex({ location: "2dsphere" });
 
-// retorno-resumo (só os nomes dos índices) pra mostrar na apresentação
+// retorno-resumo (só os nomes dos índices) 
 ({
   productsIdx: db.products.getIndexes().map(i => i.name),
   reviewsIdx:  db.reviews.getIndexes().map(i => i.name),
@@ -292,7 +290,7 @@ db.products.createIndex({ location: "2dsphere" });
  E4: variação — só debita estoque
 *******************************************************************************/
 
-// E1 — Áudio ordenado por preço (índice deve cobrir o sort)
+// E1 — Categoria Áudio ordenada por preço (índice deve cobrir o sort)
 // Retorna: (1) lista de produtos {name, price, qty, seller_id} ordenados por price ASC;
 //          (2) explain() com IXSCAN no índice {category_id:1, price:1}.
 use('marketplace_db');
@@ -356,7 +354,7 @@ db.products.findOne({ _id: prodStock._id }, { name:1, qty:1 });
  F3: vendas por vendedor (qtd e receita)
 *******************************************************************************/
 
-// F1 — média de avaliação por produto (simples e efetivo)
+// F1 — média de avaliação por produto 
 // Retorna: array de { product, avgRating, count } ordenado por avgRating desc e count desc.
 use('marketplace_db');
 db.reviews.aggregate([
@@ -534,7 +532,7 @@ db.products.find({
 }, { name: 1, price: 1, location: 1 }).limit(10);
 
 // H2 — média de distância nas ordens entregues
-// Retorna: array com único doc { avgDistanceKm, amostras }.
+// Retorna: array com único documento { avgDistanceKm, amostras }.
 use('marketplace_db');
 db.orders.aggregate([
   { $match: { status: "DELIVERED" } },
@@ -565,7 +563,7 @@ db.orders.aggregate([
 ]);
 
 // H3 — categoria mais vendida num raio de 30 km do Rio (geoWithin)
-// Retorna: array com único doc { categoria, qtd, receita } da campeã.
+// Retorna: array com único documento { categoria, qtd, receita } da campeã.
 use('marketplace_db');
 const center = { type: "Point", coordinates: [-43.2096, -22.9035] };
 const radiusKm = 30;
