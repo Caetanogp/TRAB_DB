@@ -241,7 +241,7 @@ db.reviews.insertMany(reviews);
 /******************************************************************************* 
  D) ÍNDICES (inclui 2dsphere)
  Ideia: acelerar o que a gente realmente usa. 
- Obs: justificativas curtas no próprio comentário do índice.
+ Obs: justificativas nos comentários dos índices.
  Retorna: objeto-resumo com arrays de nomes de índices por coleção.
 *******************************************************************************/
 use('marketplace_db');
@@ -582,3 +582,4 @@ db.orders.aggregate([
 ]);
 
 /*** fim ***/
+
