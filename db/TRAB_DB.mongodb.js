@@ -10,7 +10,7 @@
 
  A) SETUP & LIMPEZA
  Ideia: escolher o DB, derrubar coleções antigas  e ver se o ping está ok.
- Retorna: { ok: 1 } do ping se houver conexão com o servidor.
+ Retorna: { ok: 1 } do ping se houver conexão com o servidor mongo.
 *******************************************************************************/
 use('marketplace_db');
 
@@ -590,4 +590,6 @@ db.orders.aggregate([
 ]);
 
 /*** fim ***/
+
+
 
