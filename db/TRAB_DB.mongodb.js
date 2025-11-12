@@ -414,7 +414,7 @@ db.orders.aggregate([
 *******************************************************************************/
 
 // G1 — promoção de 15% no Headset Pro (período fechado)
-// Retorna: write result com { acknowledged, matchedCount, modifiedCount } (esperado modifiedCount = 1 - Não existia promoção).
+// Retorna: write result com { acknowledged, matchedCount, modifiedCount } (esperado modifiedCount = 1 - Não existia promoção e ela foi aplicada).
 use('marketplace_db');
 const head = db.products.findOne({ name: "Headset Pro" });
 if (head) {
@@ -539,7 +539,7 @@ db.products.find({
   }
 }, { name: 1, price: 1, location: 1 }).limit(10);
 
-// H2 — média de distância nas ordens entregues
+// H2 — média de distância dos orders (pedidos) entregues
 // Retorna: array com único documento { avgDistanceKm, amostras }.
 use('marketplace_db');
 db.orders.aggregate([
