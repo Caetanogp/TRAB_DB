@@ -157,6 +157,7 @@ db.createCollection('reviews', {
 
 /******************************************************************************* 
  C) INSERTS (com contagens no final)
+ Inserts nas collections
  Retorna: objeto com { users, categories, products, orders, reviews } contendo as contagens.
 *******************************************************************************/
 use('marketplace_db'); // repetimos alguns use() por garantia no Playground
@@ -241,7 +242,7 @@ db.reviews.insertMany(reviews);
 /******************************************************************************* 
  D) ÍNDICES (inclui 2dsphere)
  Ideia: acelerar o que a gente realmente usa. 
- Obs: justificativas curtas no próprio comentário do índice.
+ Obs: justificativas nos comentários dos índices.
  Retorna: objeto-resumo com arrays de nomes de índices por coleção.
 *******************************************************************************/
 use('marketplace_db');
