@@ -292,12 +292,19 @@ db.products.createIndex({ location: "2dsphere" });
 *******************************************************************************/
 
 // E1 — Categoria Áudio ordenada por preço (índice deve cobrir o sort)
-// Retorna: (1) lista de produtos {name, price, qty, seller_id} ordenados por price ASC;
-//          (2) explain() com IXSCAN no índice {category_id:1, price:1}.
+// Retorna: Em (1) lista de produtos {name, price, qty, seller_id} ordenados por price ASC;
+//          Em (2) explain() com IXSCAN no índice {category_id:1, price:1}.
+//          Em (2) Explain (resumo): winningPlan.inputStage.stage = "IXSCAN" usando indexName "category_id_1_price_1";
+//          Não há estágio "SORT" → ordenação vem do índice (sem sort em RAM);
+//          Execução enxuta: totalKeysExamined ~ totalDocsExamined ~ nReturned (pouca leitura).
+//          Rodar primeiro da linha "use..." ate o primeiro find e depois "...use" ate o segundo find
+
+
 use('marketplace_db');
 const cat = db.categories.findOne({ name: "Áudio" });
-db.products.find({ category_id: cat._id }, { name:1, price:1, qty:1, seller_id:1 }).sort({ price: 1 });
-db.products.find({ category_id: cat._id }).sort({ price: 1 }).explain("executionStats"); // olharmos por IXSCAN no composto
+db.products.find({ category_id: cat._id }, { name:1, price:1, qty:1, seller_id:1 }).sort({ price: 1 }); // (1) lista de produtos ordenados por price ASC
+db.products.find({ category_id: cat._id }).sort({ price: 1 }).explain("executionStats"); // (2) explain() com IXSCAN no índice {category_id:1, price:1}.
+
 
 // E2 — reviews do Headset Pro + nome do usuário (lookup)
 // Retorna: array de reviews { rating, comment, created_at, reviewer } ordenado por data desc.
@@ -406,8 +413,8 @@ db.orders.aggregate([
  Coisas novas: promoções ativas, pontos de fidelidade, resposta do vendedor.
 *******************************************************************************/
 
-// G1 — promo de 15% no Headset Pro (período fechado)
-// Retorna: write result com { acknowledged, matchedCount, modifiedCount } (esperado modifiedCount = 1).
+// G1 — promoção de 15% no Headset Pro (período fechado)
+// Retorna: write result com { acknowledged, matchedCount, modifiedCount } (esperado modifiedCount = 1 - Não existia promoção).
 use('marketplace_db');
 const head = db.products.findOne({ name: "Headset Pro" });
 if (head) {
